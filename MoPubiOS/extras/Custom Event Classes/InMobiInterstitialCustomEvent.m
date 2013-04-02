@@ -6,8 +6,43 @@
 //
 
 #import "InMobiInterstitialCustomEvent.h"
+#import "MPInstanceProvider.h"
+#import "MPLogging.h"
+
+@interface MPInstanceProvider (InMobiInterstitials)
+
+- (IMAdInterstitial *)buildIMAdInterstitialWithDelegate:(id<IMAdInterstitialDelegate>)delegate appId:(NSString *)appId;
+- (IMAdRequest *)buildIMAdRequest;
+
+@end
+
+@implementation MPInstanceProvider (InMobiInterstitials)
+
+- (IMAdInterstitial *)buildIMAdInterstitialWithDelegate:(id<IMAdInterstitialDelegate>)delegate appId:(NSString *)appId;
+{
+    IMAdInterstitial *inMobiInterstitial = [[[IMAdInterstitial alloc] init] autorelease];
+    inMobiInterstitial.delegate = delegate;
+    inMobiInterstitial.imAppId = appId;
+    return inMobiInterstitial;
+}
+
+- (IMAdRequest *)buildIMAdRequest
+{
+    return [IMAdRequest request];
+}
+
+@end
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 #define kInMobiAppID    @"YOUR_INMOBI_APP_ID"
+
+@interface InMobiInterstitialCustomEvent ()
+
+@property (nonatomic, retain) IMAdInterstitial *inMobiInterstitial;
+
+@end
 
 @implementation InMobiInterstitialCustomEvent
 
@@ -15,26 +50,25 @@
 
 - (void)requestInterstitialWithCustomEventInfo:(NSDictionary *)info
 {
-    NSLog(@"Requesting InMobi interstitial.");
-    
-    _inmobiInterstitial = [[IMAdInterstitial alloc] init];
-    _inmobiInterstitial.delegate = self;
-    _inmobiInterstitial.imAppId = kInMobiAppID;
-    
-    IMAdRequest *request = [IMAdRequest request];
-    [_inmobiInterstitial loadRequest:request];
+    MPLogInfo(@"Requesting InMobi interstitial.");
+
+    self.inMobiInterstitial = [[MPInstanceProvider sharedProvider] buildIMAdInterstitialWithDelegate:self
+                                                                                               appId:kInMobiAppID];
+
+    IMAdRequest *request = [[MPInstanceProvider sharedProvider] buildIMAdRequest];
+    [self.inMobiInterstitial loadRequest:request];
 }
 
 - (void)showInterstitialFromRootViewController:(UIViewController *)rootViewController
 {
-    [_inmobiInterstitial presentFromRootViewController:rootViewController animated:YES];
+    [self.inMobiInterstitial presentFromRootViewController:rootViewController animated:YES];
 }
 
 - (void)dealloc
 {
-    [_inmobiInterstitial setDelegate:nil];
-    [_inmobiInterstitial release];
-    
+    [self.inMobiInterstitial setDelegate:nil];
+    self.inMobiInterstitial = nil;
+
     [super dealloc];
 }
 
@@ -42,23 +76,27 @@
 
 - (void)interstitialDidFinishRequest:(IMAdInterstitial *)ad
 {
-    NSLog(@"Successfully loaded InMobi interstitial.");
-    
+    MPLogInfo(@"Successfully loaded InMobi interstitial.");
+
     [self.delegate interstitialCustomEvent:self didLoadAd:ad];
 }
 
 - (void)interstitial:(IMAdInterstitial *)ad didFailToReceiveAdWithError:(IMAdError *)error
 {
-    NSLog(@"Failed to load InMobi interstitial.");
-    
+    MPLogInfo(@"Failed to load InMobi interstitial.");
+
     [self.delegate interstitialCustomEvent:self didFailToLoadAdWithError:nil];
 }
 
 - (void)interstitialWillPresentScreen:(IMAdInterstitial *)ad
 {
-    NSLog(@"InMobi interstitial will be shown.");
-    
+    MPLogInfo(@"InMobi interstitial will be shown.");
+
     [self.delegate interstitialCustomEventWillAppear:self];
+
+    // InMobi doesn't seem to have a separate callback for the "did appear" event, so we
+    // signal that manually.
+    [self.delegate interstitialCustomEventDidAppear:self];
 }
 
 - (void)interstitial:(IMAdInterstitial *)ad didFailToPresentScreenWithError:(IMAdError *)error
@@ -66,11 +104,24 @@
     [self.delegate interstitialCustomEvent:self didFailToLoadAdWithError:nil];
 }
 
+- (void)interstitialWillDismissScreen:(IMAdInterstitial *)ad
+{
+    [self.delegate interstitialCustomEventWillDisappear:self];
+}
+
 - (void)interstitialDidDismissScreen:(IMAdInterstitial *)ad
 {
-    NSLog(@"InMobi interstitial was dismissed.");
-    
+    MPLogInfo(@"InMobi interstitial was dismissed.");
+
     [self.delegate interstitialCustomEventDidDisappear:self];
+}
+
+- (void)interstitialWillLeaveApplication:(IMAdInterstitial *)ad
+{
+    // InMobi doesn't seem to have an explicit callback for tap events. However, leaving the
+    // application is generally an indicator of a user tap, so we can use this callback
+    // to signal the tap event.
+    [self.delegate interstitialCustomEventDidReceiveTapEvent:self];
 }
 
 @end

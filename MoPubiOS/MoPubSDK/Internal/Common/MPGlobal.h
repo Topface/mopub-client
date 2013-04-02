@@ -10,6 +10,10 @@
 #import <UIKit/UIKit.h>
 #import "CJSONDeserializer.h"
 
+#ifndef MP_ANIMATED
+#define MP_ANIMATED YES
+#endif
+
 #define MOPUB_DEPRECATED __attribute__((deprecated))
 
 UIInterfaceOrientation MPInterfaceOrientation(void);
@@ -18,8 +22,6 @@ CGFloat MPStatusBarHeight(void);
 CGRect MPApplicationFrame(void);
 CGRect MPScreenBounds(void);
 CGFloat MPDeviceScaleFactor(void);
-NSString *MPAdvertisingIdentifier(void);
-BOOL MPAdvertisingTrackingEnabled(void);
 NSString *MPUserAgentString(void);
 NSDictionary *MPDictionaryFromQueryString(NSString *query);
 BOOL MPViewIsVisible(UIView *view);
@@ -56,7 +58,7 @@ BOOL MPViewIsVisible(UIView *view);
 
 @interface NSString (MPAdditions)
 
-/* 
+/*
  * Returns string with reserved/unsafe characters encoded.
  */
 - (NSString *)URLEncodedString;

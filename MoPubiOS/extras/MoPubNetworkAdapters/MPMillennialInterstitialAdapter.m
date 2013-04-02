@@ -11,123 +11,132 @@
 #import "MMAdView.h"
 #import "MPLogging.h"
 #import "CJSONDeserializer.h"
+#import "MPAdConfiguration.h"
+#import "MPInstanceProvider.h"
 
-@interface MPMillennialInterstitialAdapter ()
+static NSMutableDictionary *sharedMMAdViews = nil;
 
-+ (MMAdView *)sharedMMAdViewForAPID:(NSString *)apid delegate:(id<MMAdDelegate>)delegate;
-- (void)releaseMMAdViewSafely;
+////// Add Millennial support to the shared instance provider
+
+@interface MPInstanceProvider (MillennialInterstitials)
+
+- (MMAdView *)buildMMInterstitialAdWithAPID:(NSString *)apid delegate:(MPMillennialInterstitialAdapter *)delegate;
+
+@end
+
+@implementation MPInstanceProvider (MillennialInterstitials)
+
+- (MMAdView *)buildMMInterstitialAdWithAPID:(NSString *)apid delegate:(MPMillennialInterstitialAdapter *)delegate;
+{
+    if ([apid length] == 0)
+    {
+        MPLogWarn(@"Failed to create a Millennial interstitial. Have you set a Millennial "
+                  @"publisher ID in your MoPub dashboard?");
+        return nil;
+    }
+
+    if (!sharedMMAdViews) {
+        sharedMMAdViews = [[NSMutableDictionary dictionary] retain];
+    }
+
+    MMAdView *interstitial = [sharedMMAdViews objectForKey:apid];
+    if (!interstitial) {
+        interstitial = [MMAdView interstitialWithType:MMFullScreenAdTransition
+                                                 apid:apid
+                                             delegate:delegate
+                                               loadAd:NO];
+        [sharedMMAdViews setObject:interstitial forKey:apid];
+    }
+
+    interstitial.delegate = delegate;
+    return interstitial;
+}
 
 @end
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+@interface MPMillennialInterstitialAdapter ()
+
+@property (nonatomic, retain) MMAdView *interstitial;
+
+@end
+
 @implementation MPMillennialInterstitialAdapter
 
-+ (MMAdView *)sharedMMAdViewForAPID:(NSString *)apid
-                           delegate:(MPMillennialInterstitialAdapter *)delegate
-{
-	static NSMutableDictionary *sharedMMAdViews;
-	
-	if ([apid length] == 0)
-	{
-		MPLogWarn(@"Failed to create a Millennial interstitial. Have you set a Millennial "
-				  @"publisher ID in your MoPub dashboard?");
-		return nil;
-	}
-	
-	@synchronized(self)
-	{
-		if (!sharedMMAdViews) sharedMMAdViews = [[NSMutableDictionary dictionary] retain];
-		
-		MMAdView *adView = [sharedMMAdViews objectForKey:apid];
-		if (!adView)
-		{
-			adView = [MMAdView interstitialWithType:MMFullScreenAdTransition
-											   apid:apid
-										   delegate:delegate
-											 loadAd:NO];
-			[sharedMMAdViews setObject:adView forKey:apid];
-		}
-        
-        [adView setDelegate:delegate];
-		return adView;
-	}
-}
+@synthesize interstitial = _interstitial;
 
-- (void)getAdWithParams:(NSDictionary *)params
-{	
+- (void)getAdWithConfiguration:(MPAdConfiguration *)configuration
+{
+    NSDictionary *params = configuration.headers;
     CJSONDeserializer *deserializer = [CJSONDeserializer deserializerWithNullObject:NULL];
-    
-    NSData *hdrData = [(NSString *)[params objectForKey:@"X-Nativeparams"] 
-					   dataUsingEncoding:NSUTF8StringEncoding];
+
+    NSData *hdrData = [(NSString *)[params objectForKey:@"X-Nativeparams"]
+                       dataUsingEncoding:NSUTF8StringEncoding];
     NSDictionary *hdrParams = [deserializer deserializeAsDictionary:hdrData error:NULL];
     NSString *apid = [hdrParams objectForKey:@"adUnitID"];
-	
-	_mmInterstitialAdView = [[[self class] sharedMMAdViewForAPID:apid delegate:self] retain];
-	
-	if (!_mmInterstitialAdView) {
-		[_manager adapter:self didFailToLoadAdWithError:nil];
-		return;
-	}
-    
-    // If a Millennial interstitial has already been cached, we don't need to fetch another one.
-    if ([_mmInterstitialAdView checkForCachedAd]) {
-        MPLogInfo(@"Previous Millennial interstitial ad was found in the cache.");
-        [_manager adapterDidFinishLoadingAd:self];
+
+    self.interstitial = [[MPInstanceProvider sharedProvider] buildMMInterstitialAdWithAPID:apid delegate:self];
+
+    if (!self.interstitial) {
+        [self.delegate adapter:self didFailToLoadAdWithError:nil];
         return;
     }
 
-    [_mmInterstitialAdView fetchAdToCache];
+    // If a Millennial interstitial has already been cached, we don't need to fetch another one.
+    if ([self.interstitial checkForCachedAd]) {
+        MPLogInfo(@"Previous Millennial interstitial ad was found in the cache.");
+        [self.delegate adapterDidFinishLoadingAd:self];
+        return;
+    }
+
+    [self.interstitial fetchAdToCache];
 }
 
 - (void)dealloc
 {
-	[self releaseMMAdViewSafely];
-	[super dealloc];
-}
-
-- (void)releaseMMAdViewSafely
-{
-	if (_mmInterstitialAdView.delegate == self) _mmInterstitialAdView.delegate = nil;
-	[_mmInterstitialAdView release]; _mmInterstitialAdView = nil;
+    self.interstitial.delegate = nil;
+    self.interstitial = nil;
+    [super dealloc];
 }
 
 - (void)showInterstitialFromViewController:(UIViewController *)controller
 {
-    if ([_mmInterstitialAdView checkForCachedAd])
+    if ([self.interstitial checkForCachedAd])
     {
-        _mmInterstitialAdView.rootViewController = controller;
-        if (![_mmInterstitialAdView displayCachedAd])
+        self.interstitial.rootViewController = controller;
+        if (![self.interstitial displayCachedAd])
         {
             MPLogInfo(@"Millennial interstitial ad could not be displayed.");
-            [_manager interstitialDidExpireForAdapter:self];
+            [self.delegate interstitialDidExpireForAdapter:self];
         }
     }
     else
     {
         MPLogInfo(@"Millennial interstitial ad is no longer cached.");
-        [_manager interstitialDidExpireForAdapter:self];
+        [self.delegate interstitialDidExpireForAdapter:self];
     }
 }
 
 # pragma mark -
 # pragma mark MMAdDelegate
 
-- (NSDictionary *)requestData 
+- (NSDictionary *)requestData
 {
-	NSMutableDictionary *params = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-								   @"mopubsdk", @"vendor", nil];
-	
-	NSArray *locationPair = [self.interstitialAdController locationDescriptionPair];
-	if ([locationPair count] == 2) {
-		[params setObject:[locationPair objectAtIndex:0] forKey:@"lat"];
-		[params setObject:[locationPair objectAtIndex:1] forKey:@"lon"];
-	}
-	
-	return params;
+    NSMutableDictionary *params = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                                   @"mopubsdk", @"vendor", nil];
+
+    NSArray *locationPair = [self.delegate locationDescriptionPair];
+    if ([locationPair count] == 2) {
+        [params setObject:[locationPair objectAtIndex:0] forKey:@"lat"];
+        [params setObject:[locationPair objectAtIndex:1] forKey:@"lon"];
+    }
+
+    return params;
 }
 
 - (void)adRequestFailed:(MMAdView *)adView {
+
 }
 
 - (void)adRequestIsCaching:(MMAdView *)adView {
@@ -137,29 +146,30 @@
 - (void)adRequestFinishedCaching:(MMAdView *)adView successful:(BOOL)didSucceed {
     if (didSucceed) {
         MPLogInfo(@"Millennial interstitial ad was cached successfully.");
-        [_manager adapterDidFinishLoadingAd:self];
+        [self.delegate adapterDidFinishLoadingAd:self];
     } else {
         MPLogInfo(@"Millennial interstitial ad caching failed.");
-        [_manager adapter:self didFailToLoadAdWithError:nil];
+        [self.delegate adapter:self didFailToLoadAdWithError:nil];
     }
 }
 
 - (void)adModalWillAppear
 {
-	[_manager interstitialWillAppearForAdapter:self];
+    [self.delegate interstitialWillAppearForAdapter:self];
 }
 
 - (void)adModalDidAppear
 {
-	[_manager interstitialDidAppearForAdapter:self];
+    [self.delegate interstitialDidAppearForAdapter:self];
+    [self trackImpression];
 }
 
 - (void)adModalWasDismissed
 {
     [self retain];
-	[_manager interstitialWillDisappearForAdapter:self];
-	[_manager interstitialDidDisappearForAdapter:self];
-    [_manager interstitialDidExpireForAdapter:self];
+    [self.delegate interstitialWillDisappearForAdapter:self];
+    [self.delegate interstitialDidDisappearForAdapter:self];
+    [self.delegate interstitialDidExpireForAdapter:self];
     [self release];
 }
 

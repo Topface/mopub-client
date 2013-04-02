@@ -9,36 +9,23 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-@class MPInterstitialAdController;
-@class MPInterstitialAdManager;
 @class MPAdConfiguration;
 
-@interface MPBaseInterstitialAdapter : NSObject 
-{
-	MPInterstitialAdController *_interstitialAdController;
-    MPInterstitialAdManager *_manager;
-}
+@protocol MPBaseInterstitialAdapterDelegate;
 
-@property (nonatomic, readonly) MPInterstitialAdController *interstitialAdController;
-@property (nonatomic, assign) MPInterstitialAdManager *manager;
+@interface MPBaseInterstitialAdapter : NSObject
+
+@property (nonatomic, assign) id<MPBaseInterstitialAdapterDelegate> delegate;
 
 /*
- * Creates an adapter with a reference to an MPAdView.
+ * Creates an adapter with a reference to an MPInterstitialAdManager.
  */
-- (id)initWithInterstitialAdController:(MPInterstitialAdController *)interstitialAdController;
+- (id)initWithDelegate:(id<MPBaseInterstitialAdapterDelegate>)delegate;
 
 /*
  * Sets the adapter's delegate to nil.
  */
 - (void)unregisterDelegate;
-
-/*
- * -getAdWithParams: needs to be implemented by adapter subclasses that want to load native ads.
- * -getAd simply calls -getAdWithParams: with a nil dictionary.
- */
-- (void)getAd;
-- (void)getAdWithParams:(NSDictionary *)params;
-- (void)_getAdWithParams:(NSDictionary *)params;
 
 - (void)getAdWithConfiguration:(MPAdConfiguration *)configuration;
 - (void)_getAdWithConfiguration:(MPAdConfiguration *)configuration;
@@ -50,28 +37,30 @@
 
 @end
 
+@interface MPBaseInterstitialAdapter (ProtectedMethods)
+
+- (void)trackImpression;
+- (void)trackClick;
+
+@end
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+@class MPInterstitialAdController;
 
 @protocol MPBaseInterstitialAdapterDelegate
 
-@required
-/*
- * These callbacks notify you that the adapter (un)successfully loaded an ad.
- */
+- (MPInterstitialAdController *)interstitialAdController;
+- (id)interstitialDelegate;
+- (NSArray *)locationDescriptionPair;
+
 - (void)adapterDidFinishLoadingAd:(MPBaseInterstitialAdapter *)adapter;
 - (void)adapter:(MPBaseInterstitialAdapter *)adapter didFailToLoadAdWithError:(NSError *)error;
-
-/*
- *
- */
 - (void)interstitialWillAppearForAdapter:(MPBaseInterstitialAdapter *)adapter;
 - (void)interstitialDidAppearForAdapter:(MPBaseInterstitialAdapter *)adapter;
 - (void)interstitialWillDisappearForAdapter:(MPBaseInterstitialAdapter *)adapter;
 - (void)interstitialDidDisappearForAdapter:(MPBaseInterstitialAdapter *)adapter;
-
-- (void)interstitialWasTappedForAdapter:(MPBaseInterstitialAdapter *)adapter;
 - (void)interstitialDidExpireForAdapter:(MPBaseInterstitialAdapter *)adapter;
-
 - (void)interstitialWillLeaveApplicationForAdapter:(MPBaseInterstitialAdapter *)adapter;
 
 @end

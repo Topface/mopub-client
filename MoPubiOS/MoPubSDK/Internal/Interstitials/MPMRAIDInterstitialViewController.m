@@ -32,7 +32,7 @@
                                               placementType:MRAdViewPlacementTypeInterstitial];
         _interstitialView.delegate = self;
         _configuration = [configuration retain];
-        _orientationType = [_configuration orientationType];
+        self.orientationType = [_configuration orientationType];
         _advertisementHasCustomCloseButton = NO;
     }
     return self;
@@ -49,7 +49,7 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    
+
     _interstitialView.frame = self.view.bounds;
     _interstitialView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:_interstitialView];
@@ -133,12 +133,14 @@
     [self layoutCloseButton];
 }
 
-#pragma mark - Low-Memory Conditions
-
-- (void)didReceiveMemoryWarning
+- (void)appShouldSuspendForAd:(MRAdView *)adView
 {
-    [super didReceiveMemoryWarning];
-    // Dispose of any resources that can be recreated.
+
+}
+
+- (void)appShouldResumeFromAd:(MRAdView *)adView
+{
+
 }
 
 @end

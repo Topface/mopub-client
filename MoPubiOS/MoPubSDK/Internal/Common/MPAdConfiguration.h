@@ -42,10 +42,9 @@ extern NSString * const kAdTypeMraid;
 @interface MPAdConfiguration : NSObject
 {
     NSDictionary *_headers;
-    
+
     MPAdType _adType;
     NSString *_networkType;
-    CGSize _adSize;
     CGSize _preferredSize;
     NSURL *_clickTrackingURL;
     NSURL *_impressionTrackingURL;
@@ -87,5 +86,6 @@ extern NSString * const kAdTypeMraid;
 - (NSURL *)URLFromHeaders:(NSDictionary *)headers forKey:(NSString *)key;
 - (BOOL)hasPreferredSize;
 - (NSString *)adResponseHTMLString;
+- (NSString *)clickDetectionURLPrefix;
 
 @end

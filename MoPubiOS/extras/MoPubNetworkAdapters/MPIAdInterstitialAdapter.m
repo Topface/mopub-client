@@ -10,59 +10,89 @@
 #import "MPAdView.h"
 #import "MPLogging.h"
 #import "CJSONDeserializer.h"
+#import "MPInstanceProvider.h"
+
+////// Add iAD support to the shared instance provider
+
+@interface MPInstanceProvider (iAdInterstitials)
+
+- (ADInterstitialAd *)buildADInterstitialAd;
+
+@end
+
+@implementation MPInstanceProvider (iAdInterstitials)
+
+- (ADInterstitialAd *)buildADInterstitialAd
+{
+    return [[[ADInterstitialAd alloc] init] autorelease];
+}
+
+@end
+
+////// MPIAdInterstitialAdapter
+
+@interface MPIAdInterstitialAdapter ()
+
+@property (nonatomic, retain) ADInterstitialAd *iAdInterstitial;
+@property (nonatomic, assign) BOOL isOnScreen;
+
+@end
 
 @implementation MPIAdInterstitialAdapter
 
-- (void)getAdWithParams:(NSDictionary *)params
-{		
-    _iAdInterstitial = [[ADInterstitialAd alloc] init];
-    _iAdInterstitial.delegate = self;
+@synthesize iAdInterstitial = _iAdInterstitial;
+
+- (void)getAdWithConfiguration:(MPAdConfiguration *)configuration
+{
+    self.iAdInterstitial = [[MPInstanceProvider sharedProvider] buildADInterstitialAd];
+    self.iAdInterstitial.delegate = self;
 }
 
 - (void)dealloc {
-    _iAdInterstitial.delegate = nil;
-    [_iAdInterstitial release];
+    self.iAdInterstitial.delegate = nil;
+    self.iAdInterstitial = nil;
     [super dealloc];
 }
 
 - (void)showInterstitialFromViewController:(UIViewController *)controller {
     // ADInterstitialAd throws an exception if we don't check the loaded flag prior to presenting.
-	if (_iAdInterstitial.loaded) {
-        [_interstitialAdController interstitialWillAppearForAdapter:self];
-        [_iAdInterstitial presentFromViewController:controller];
-        _isOnscreen = YES;
-        [_interstitialAdController interstitialDidAppearForAdapter:self];
+    if (self.iAdInterstitial.loaded) {
+        [self trackImpression];
+        [self.delegate interstitialWillAppearForAdapter:self];
+        [self.iAdInterstitial presentFromViewController:controller];
+        self.isOnScreen = YES;
+        [self.delegate interstitialDidAppearForAdapter:self];
     }
 }
 
 - (void)interstitialAdDidUnload:(ADInterstitialAd *)interstitialAd {
     [self retain];
-    
+
     // This method may be called whether the ad is on-screen or not. We only want to invoke the
     // "disappear" callbacks if the ad is on-screen.
-    if (_isOnscreen) {
-        [_interstitialAdController interstitialWillDisappearForAdapter:self];
-        [_interstitialAdController interstitialDidDisappearForAdapter:self];
-        _isOnscreen = NO;
+    if (self.isOnScreen) {
+        [self.delegate interstitialWillDisappearForAdapter:self];
+        [self.delegate interstitialDidDisappearForAdapter:self];
+        self.isOnScreen = NO; //technically not necessary as iAd interstitials are single use
     }
-    
+
     // ADInterstitialAd can't be shown again after it has unloaded, so notify the controller.
-    [_interstitialAdController interstitialDidExpireForAdapter:self];
-    
+    [self.delegate interstitialDidExpireForAdapter:self];
+
     [self release];
 }
 
 - (void)interstitialAd:(ADInterstitialAd *)interstitialAd didFailWithError:(NSError *)error {
-    [_interstitialAdController adapter:self didFailToLoadAdWithError:error];
+    [self.delegate adapter:self didFailToLoadAdWithError:error];
 }
 
 - (void)interstitialAdDidLoad:(ADInterstitialAd *)interstitialAd {
-    [_interstitialAdController adapterDidFinishLoadingAd:self];
+    [self.delegate adapterDidFinishLoadingAd:self];
 }
 
-- (BOOL)interstitialAdActionShouldBegin:(ADInterstitialAd *)interstitialAd 
+- (BOOL)interstitialAdActionShouldBegin:(ADInterstitialAd *)interstitialAd
                    willLeaveApplication:(BOOL)willLeave {
-    [_interstitialAdController interstitialWasTappedForAdapter:self];
+    [self trackClick];
     return YES; // YES allows the banner action to execute (NO would instead cancel the action).
 }
 @end
