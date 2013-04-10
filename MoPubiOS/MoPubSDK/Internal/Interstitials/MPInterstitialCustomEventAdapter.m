@@ -37,6 +37,7 @@
 @interface MPInterstitialCustomEventAdapter ()
 
 @property (nonatomic, retain) MPInterstitialCustomEvent *interstitialCustomEvent;
+- (void)loadAdFromCustomClass:(Class)customClass configuration:(MPAdConfiguration *)configuration;
 
 @end
 
@@ -46,12 +47,12 @@
 
 - (void)dealloc
 {
+    [self.interstitialCustomEvent customEventDidUnload];
     self.interstitialCustomEvent.delegate = nil;
     self.interstitialCustomEvent = nil;
 
     [super dealloc];
 }
-
 
 - (void)getAdWithConfiguration:(MPAdConfiguration *)configuration
 {

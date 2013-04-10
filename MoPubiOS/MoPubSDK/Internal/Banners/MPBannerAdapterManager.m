@@ -14,13 +14,12 @@
 #import "MPError.h"
 
 @interface MPBannerAdapterManager ()
-{
-    UIView *_requestedAd;
-}
 
 @property (nonatomic, retain) UIView *requestedAd;
 @property (nonatomic, readwrite, retain) MPBaseAdapter *requestingAdapter;
 @property (nonatomic, readwrite, retain) MPBaseAdapter *currentOnscreenAdapter;
+
+- (void)requestBannerFromAdapter:(MPBaseAdapter *)adapter forConfiguration:(MPAdConfiguration *)configuration;
 
 @end
 
@@ -143,6 +142,11 @@
 - (MPAdView *)adView
 {
     return [_delegate adView];
+}
+
+- (CLLocation *)location
+{
+    return self.delegate.location;
 }
 
 - (id<MPAdViewDelegate>)adViewDelegate

@@ -9,7 +9,6 @@
 #import "MPIAdInterstitialAdapter.h"
 #import "MPAdView.h"
 #import "MPLogging.h"
-#import "CJSONDeserializer.h"
 #import "MPInstanceProvider.h"
 
 ////// Add iAD support to the shared instance provider
@@ -41,6 +40,7 @@
 @implementation MPIAdInterstitialAdapter
 
 @synthesize iAdInterstitial = _iAdInterstitial;
+@synthesize isOnScreen = _isOnScreen;
 
 - (void)getAdWithConfiguration:(MPAdConfiguration *)configuration
 {

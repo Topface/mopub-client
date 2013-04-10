@@ -11,6 +11,8 @@
 #import "MPGlobal.h"
 #import "MPKeywordProvider.h"
 #import "MPIdentityProvider.h"
+#import "MPInstanceProvider.h"
+#import "MPReachability.h"
 
 NSString * const kMoPubInterfaceOrientationPortrait = @"p";
 NSString * const kMoPubInterfaceOrientationLandscape = @"l";
@@ -23,9 +25,11 @@ NSString * const kMoPubInterfaceOrientationLandscape = @"l";
 + (NSString *)queryParameterForOrientation;
 + (NSString *)queryParameterForScaleFactor;
 + (NSString *)queryParameterForTimeZone;
-+ (NSString *)queryParameterForLocationArray:(NSArray *)locationArray;
++ (NSString *)queryParameterForLocation:(CLLocation *)location;
 + (NSString *)queryParameterForMRAID;
 + (NSString *)queryParameterForDNT;
++ (NSString *)queryParameterForConnectionType;
++ (NSString *)queryParameterForApplicationVersion;
 + (BOOL)advertisingTrackingEnabled;
 
 @end
@@ -36,11 +40,12 @@ NSString * const kMoPubInterfaceOrientationLandscape = @"l";
 
 + (NSURL *)URLWithAdUnitID:(NSString *)adUnitID
                   keywords:(NSString *)keywords
-             locationArray:(NSArray *)locationArray
+                  location:(CLLocation *)location
                    testing:(BOOL)testing
 {
-    NSString *URLString = [NSString stringWithFormat:@"http://%@/m/ad?v=8&udid=%@&id=%@&nv=%@",
+    NSString *URLString = [NSString stringWithFormat:@"http://%@/m/ad?v=%@&udid=%@&id=%@&nv=%@",
                            testing ? HOSTNAME_FOR_TESTING : HOSTNAME,
+                           MP_SERVER_VERSION,
                            [MPIdentityProvider identifier],
                            [adUnitID stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding],
                            MP_SDK_VERSION];
@@ -49,27 +54,13 @@ NSString * const kMoPubInterfaceOrientationLandscape = @"l";
     URLString = [URLString stringByAppendingString:[self queryParameterForOrientation]];
     URLString = [URLString stringByAppendingString:[self queryParameterForScaleFactor]];
     URLString = [URLString stringByAppendingString:[self queryParameterForTimeZone]];
-    URLString = [URLString stringByAppendingString:[self queryParameterForLocationArray:locationArray]];
+    URLString = [URLString stringByAppendingString:[self queryParameterForLocation:location]];
     URLString = [URLString stringByAppendingString:[self queryParameterForMRAID]];
     URLString = [URLString stringByAppendingString:[self queryParameterForDNT]];
+    URLString = [URLString stringByAppendingString:[self queryParameterForConnectionType]];
+    URLString = [URLString stringByAppendingString:[self queryParameterForApplicationVersion]];
 
     return [NSURL URLWithString:URLString];
-}
-
-+ (NSURL *)URLWithAdUnitID:(NSString *)adUnitID
-                  keywords:(NSString *)keywords
-                  location:(CLLocation *)location
-                   testing:(BOOL)testing
-{
-    NSMutableArray *locationArray = [NSMutableArray array];
-    if (location) {
-        [locationArray addObject:[NSNumber numberWithDouble:location.coordinate.latitude]];
-        [locationArray addObject:[NSNumber numberWithDouble:location.coordinate.longitude]];
-    }
-    return [self URLWithAdUnitID:adUnitID
-                        keywords:keywords
-                   locationArray:locationArray
-                         testing:testing];
 }
 
 
@@ -126,15 +117,19 @@ NSString * const kMoPubInterfaceOrientationLandscape = @"l";
     return [NSString stringWithFormat:@"&z=%@", [formatter stringFromDate:today]];
 }
 
-+ (NSString *)queryParameterForLocationArray:(NSArray *)locationArray
++ (NSString *)queryParameterForLocation:(CLLocation *)location
 {
     NSString *result = @"";
 
-    if ([locationArray count] == 2) {
-        result = [result stringByAppendingFormat:
-                  @"&ll=%@,%@",
-                  [locationArray objectAtIndex:0],
-                  [locationArray objectAtIndex:1]];
+    if (location && location.horizontalAccuracy >= 0) {
+        result = [NSString stringWithFormat:@"&ll=%@,%@",
+                  [NSNumber numberWithDouble:location.coordinate.latitude],
+                  [NSNumber numberWithDouble:location.coordinate.longitude]];
+
+        if (location.horizontalAccuracy) {
+            result = [result stringByAppendingFormat:@"&lla=%@",
+                      [NSNumber numberWithDouble:location.horizontalAccuracy]];
+        }
     }
 
     return result;
@@ -153,6 +148,18 @@ NSString * const kMoPubInterfaceOrientationLandscape = @"l";
 + (NSString *)queryParameterForDNT
 {
     return [self advertisingTrackingEnabled] ? @"" : @"&dnt=1";
+}
+
++ (NSString *)queryParameterForConnectionType
+{
+    return [[[MPInstanceProvider sharedProvider] sharedMPReachability] hasWifi] ? @"&ct=2" : @"&ct=3";
+}
+
++ (NSString *)queryParameterForApplicationVersion
+{
+    NSString *applicationVersion = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+    return [NSString stringWithFormat:@"&av=%@",
+            [applicationVersion stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
 }
 
 + (BOOL)advertisingTrackingEnabled

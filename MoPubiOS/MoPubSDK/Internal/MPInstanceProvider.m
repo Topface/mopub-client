@@ -19,8 +19,19 @@
 #import "MPAnalyticsTracker.h"
 #import "MPGlobal.h"
 #import "MPMRAIDInterstitialViewController.h"
+#import "MPReachability.h"
+
+@interface MPInstanceProvider ()
+
+@property (nonatomic, retain) MPReachability *sharedReachability;
+@property (nonatomic, copy) NSString *userAgent;
+
+@end
 
 @implementation MPInstanceProvider
+
+@synthesize sharedReachability = _sharedReachability;
+@synthesize userAgent = _userAgent;
 
 static MPInstanceProvider *sharedProvider = nil;
 
@@ -32,9 +43,39 @@ static MPInstanceProvider *sharedProvider = nil;
     return sharedProvider;
 }
 
+- (void)dealloc
+{
+    self.sharedReachability = nil;
+    [super dealloc];
+}
+
 - (MPAnalyticsTracker *)buildMPAnalyticsTracker
 {
-    return [MPAnalyticsTracker trackerWithUserAgentString:MPUserAgentString()];
+    return [MPAnalyticsTracker tracker];
+}
+
+- (MPReachability *)sharedMPReachability
+{
+    if (!self.sharedReachability) {
+        self.sharedReachability = [MPReachability reachabilityForLocalWiFi];
+    }
+    return self.sharedReachability;
+}
+
+- (NSString *)userAgent
+{
+    if (!_userAgent) {
+        self.userAgent = [[[[UIWebView alloc] init] autorelease] stringByEvaluatingJavaScriptFromString:@"navigator.userAgent"];
+    }
+
+    return _userAgent;
+}
+
+- (NSMutableURLRequest *)buildConfiguredURLRequestWithURL:(NSURL *)URL
+{
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:URL];
+    [request setValue:self.userAgent forHTTPHeaderField:@"User-Agent"];
+    return request;
 }
 
 - (MPAdWebViewAgent *)buildMPAdWebViewAgentWithAdWebViewFrame:(CGRect)frame delegate:(id<MPAdWebViewAgentDelegate>)delegate customMethodDelegate:(id)customMethodDelegate
@@ -61,12 +102,12 @@ static MPInstanceProvider *sharedProvider = nil;
 
 - (MPInterstitialAdManager *)buildMPInterstitialAdManagerWithDelegate:(id<MPInterstitialAdManagerDelegate>)delegate
 {
-    return [[[MPInterstitialAdManager alloc] initWithDelegate:delegate] autorelease];
+    return [[(MPInterstitialAdManager *)[MPInterstitialAdManager alloc] initWithDelegate:delegate] autorelease];
 }
 
 - (MPAdServerCommunicator *)buildMPAdServerCommunicatorWithDelegate:(id<MPAdServerCommunicatorDelegate>)delegate
 {
-    return [[[MPAdServerCommunicator alloc] initWithDelegate:delegate] autorelease];
+    return [[(MPAdServerCommunicator *)[MPAdServerCommunicator alloc] initWithDelegate:delegate] autorelease];
 }
 
 - (MPBaseInterstitialAdapter *)buildInterstitialAdapterForConfiguration:(MPAdConfiguration *)configuration
@@ -74,9 +115,9 @@ static MPInstanceProvider *sharedProvider = nil;
 {
     if ([configuration.networkType isEqualToString:@"custom"]) {
         if (configuration.customEventClass) {
-            return [[[MPInterstitialCustomEventAdapter alloc] initWithDelegate:delegate] autorelease];
+            return [[(MPInterstitialCustomEventAdapter *)[MPInterstitialCustomEventAdapter alloc] initWithDelegate:delegate] autorelease];
         } else if (configuration.customSelectorName) {
-            return [[[MPLegacyInterstitialCustomEventAdapter alloc] initWithDelegate:delegate] autorelease];
+            return [[(MPLegacyInterstitialCustomEventAdapter *)[MPLegacyInterstitialCustomEventAdapter alloc] initWithDelegate:delegate] autorelease];
         } else {
             return nil;
         }

@@ -13,7 +13,8 @@
 #define HOSTNAME                    @"ads.mopub.com"
 #define HOSTNAME_FOR_TESTING        @"testing.ads.mopub.com"
 #define DEFAULT_PUB_ID              @"agltb3B1Yi1pbmNyDAsSBFNpdGUYkaoMDA"
-#define MP_SDK_VERSION              @"1.11.2.1"
+#define MP_SERVER_VERSION           @"8"
+#define MP_SDK_VERSION              @"1.11.3.1"
 
 // Sizing constants.
 #define MOPUB_BANNER_SIZE           CGSizeMake(320, 50)
@@ -24,5 +25,5 @@
 // Miscellaneous constants.
 #define MINIMUM_REFRESH_INTERVAL    5.0
 
-// In-app purchase constants.
-#define STORE_RECEIPT_SUFFIX        @"/m/purchase"
+// Feature Flags
+#define SESSION_TRACKING_ENABLED    1

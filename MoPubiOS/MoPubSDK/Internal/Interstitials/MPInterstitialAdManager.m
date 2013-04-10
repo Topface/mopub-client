@@ -19,10 +19,11 @@
 
 @property (nonatomic, assign) BOOL loading;
 @property (nonatomic, assign, readwrite) BOOL ready;
-@property (nonatomic, retain) NSMutableURLRequest *request;
 @property (nonatomic, retain) MPBaseInterstitialAdapter *adapter;
 @property (nonatomic, retain) MPAdServerCommunicator *communicator;
 @property (nonatomic, retain) MPAdConfiguration *configuration;
+
+- (void)setUpAdapterWithConfiguration:(MPAdConfiguration *)configuration;
 
 @end
 
@@ -34,7 +35,6 @@
 @synthesize ready = _ready;
 @synthesize delegate = _delegate;
 @synthesize communicator = _communicator;
-@synthesize request = _request;
 @synthesize adapter = _adapter;
 @synthesize configuration = _configuration;
 
@@ -42,10 +42,6 @@
 {
     self = [super init];
     if (self) {
-        self.request = [[NSMutableURLRequest alloc] init];
-        [self.request setCachePolicy:NSURLRequestReloadIgnoringCacheData];
-        [self.request setValue:MPUserAgentString() forHTTPHeaderField:@"User-Agent"];
-
         self.communicator = [[MPInstanceProvider sharedProvider] buildMPAdServerCommunicatorWithDelegate:self];
         self.delegate = delegate;
     }
@@ -54,8 +50,6 @@
 
 - (void)dealloc
 {
-    self.request = nil;
-
     [self.communicator cancel];
     [self.communicator setDelegate:nil];
     self.communicator = nil;
@@ -112,9 +106,9 @@
     }
 }
 
-- (NSArray *)locationDescriptionPair
+- (CLLocation *)location
 {
-    return nil;
+    return [self.delegate location];
 }
 
 - (MPInterstitialAdController *)interstitialAdController
