@@ -34,7 +34,6 @@ public class FacebookKeywordProvider {
                 return null;
             }
 
-            c.close();
             return ID_PREFIX + attributionId;
         } catch (Exception exception) {
             Log.d("MoPub", "Unable to retrieve FBATTRID: " + exception.toString());
