@@ -1,10 +1,12 @@
-*.iml
 .DS_Store
 *.pyc
 build
 Android/mopub-android-sdk/bin
 Android/mopub-android-simpleadsdemo/bin
 *~
+# IDEA
+.idea/
+*.iml
 # Xcode
 .DS_Store
 build/
@@ -22,5 +24,4 @@ xcuserdata
 profile
 *.moved-aside
 DerivedData
-.idea/
 Temp
