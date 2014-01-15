@@ -33,6 +33,7 @@ bin/
 gen/
 out/
 tmp/
+classes/
 local.properties
 target/
 *.orig
